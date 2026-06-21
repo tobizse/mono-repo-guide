@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mono-Repo Architecture & Developer Guide</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #dc2626;
+      --primary-light: #ef4444;
+      --primary-dark: #991b1b;
+      --accent: #f59e0b;
+      --text-dark: #1f2937;
+      --text-light: #6b7280;
+      --bg-light: #f9fafb;
+      --bg-white: #ffffff;
+      --border: #e5e7eb;
+      --code-bg: #f3f4f6;
+      --success: #10b981;
+      --warning: #f97316;
+      --sidebar-bg: #7f1d1d;
+      --inline-code: #b91c1c;
+    }
+
+    :root[data-theme="dark"] {
+      --primary: #22d3ee;
+      --primary-light: #67e8f9;
+      --primary-dark: #0891b2;
+      --text-dark: #f1f5f9;
+      --text-light: #94a3b8;
+      --bg-light: #0f172a;
+      --bg-white: #1e293b;
+      --border: #334155;
+      --code-bg: #0f172a;
+      --sidebar-bg: #060d1a;
+      --inline-code: #22d3ee;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      color: var(--text-dark);
+      background: var(--bg-light);
+      line-height: 1.6;
+    }
+
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 300px;
+      height: 100vh;
+      background: var(--sidebar-bg);
+      color: white;
+      overflow-y: auto;
+      padding: 0;
+      z-index: 100;
+    }
+
+    .sidebar-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+      position: sticky;
+      top: 0;
+      background: var(--sidebar-bg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .sidebar-header h1 {
+      font-size: 1.1rem;
+    }
+
+    .theme-toggle {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      color: white;
+      padding: 0.3rem 0.7rem;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: background 0.2s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .theme-toggle:hover {
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    .sidebar-nav {
+      list-style: none;
+      padding: 1rem 0;
+    }
+
+    .sidebar-nav li {
+      margin: 0;
+    }
+
+    .sidebar-nav a {
+      display: block;
+      padding: 0.75rem 1.5rem;
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      font-size: 0.9rem;
+      border-left: 3px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .sidebar-nav a:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border-left-color: var(--accent);
+    }
+
+    .sidebar-nav a.active {
+      background: rgba(255, 255, 255, 0.14);
+      color: white;
+      border-left-color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* Main content */
+    .main {
+      margin-left: 300px;
+      flex: 1;
+      padding: 2rem;
+      max-width: 1200px;
+    }
+
+    .header {
+      background: var(--bg-white);
+      padding: 2rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+      border-bottom: 4px solid var(--primary);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .header h1 {
+      color: var(--primary-dark);
+      margin-bottom: 0.5rem;
+    }
+
+    .header p {
+      color: var(--text-light);
+      font-size: 1.1rem;
+    }
+
+    /* Sections */
+    section {
+      background: var(--bg-white);
+      margin-bottom: 2rem;
+      border-radius: 8px;
+      padding: 2rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    section h2 {
+      color: var(--primary-dark);
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--primary-light);
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    section h2:hover {
+      color: var(--primary);
+    }
+
+    section h2 .toggle {
+      font-size: 1.2rem;
+      transition: transform 0.2s;
+    }
+
+    section h2.collapsed .toggle {
+      transform: rotate(-90deg);
+    }
+
+    section .content {
+      display: block;
+    }
+
+    section.collapsed .content {
+      display: none;
+    }
+
+    section h3 {
+      color: var(--primary);
+      margin-top: 1.5rem;
+      margin-bottom: 0.75rem;
+      font-size: 1.1rem;
+    }
+
+    section h3:first-child {
+      margin-top: 0;
+    }
+
+    section p {
+      margin-bottom: 1rem;
+      color: var(--text-dark);
+    }
+
+    /* Code blocks */
+    pre {
+      background: var(--code-bg);
+      border-left: 4px solid var(--primary);
+      padding: 1rem;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin-bottom: 1rem;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    code {
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 0.9em;
+      color: var(--inline-code);
+    }
+
+    pre code {
+      color: var(--text-dark);
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1rem;
+    }
+
+    table th {
+      background: var(--primary-light);
+      color: white;
+      padding: 0.75rem;
+      text-align: left;
+      font-weight: 600;
+    }
+
+    table td {
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    table tr:hover {
+      background: var(--bg-light);
+    }
+
+    /* Lists */
+    ul,
+    ol {
+      margin-left: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    /* Highlights */
+    .keyword {
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .note {
+      background: rgba(59, 130, 246, 0.05);
+      border-left: 4px solid var(--primary);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 4px;
+    }
+
+    .warning {
+      background: rgba(249, 158, 11, 0.05);
+      border-left: 4px solid var(--warning);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 4px;
+    }
+
+    .success {
+      background: rgba(16, 185, 129, 0.05);
+      border-left: 4px solid var(--success);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 4px;
+    }
+
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 1rem;
+      }
+
+      section {
+        padding: 1rem;
+      }
+
+      section h2 {
+        font-size: 1.1rem;
+      }
+    }
+
+    /* Scrollbar */
+    .sidebar::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .sidebar::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      color: var(--text-light);
+      font-size: 0.875rem;
+      padding: 2rem 0;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Dark mode specific overrides */
+    [data-theme="dark"] .note {
+      background: rgba(34, 211, 238, 0.07);
+    }
+
+    [data-theme="dark"] pre code {
+      color: #e2e8f0;
+    }
+
+    [data-theme="dark"] section {
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    }
+
+    [data-theme="dark"] .header {
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Brand badges */
+    .brand-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .brand-badge {
+      background: var(--primary-light);
+      color: white;
+      padding: 0.5rem;
+      border-radius: 4px;
+      text-align: center;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .brand-badge.api-only {
+      background: #6366f1;
+    }
+
+    .brand-badge.full {
+      background: var(--success);
+    }
+
+    .brand-badge.skeleton {
+      background: #8b5cf6;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>Navigation</h1>
+        <button class="theme-toggle" id="themeToggle">🌙 Dark</button>
+      </div>
+      <nav class="sidebar-nav" id="navList">
+        <!-- Generated by JavaScript -->
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <div class="header">
+        <h1>Mono-Repo Architecture & Developer Guide</h1>
+        <p>TypeScript Playwright automation framework with multi-brand support</p>
+      </div>
+
+      <!-- Introduction -->
+      <section id="intro">
+        <h2><span>Introduction</span><span class="toggle">▾</span></h2>
+        <div class="content">
+          <p>A <span class="keyword">mono-repo</span> is a single Git repository containing multiple logically distinct packages. Instead of 3
+            separate repos (shared framework, API tests, web tests), everything lives together with clear boundaries.</p>
+
+          <h3>Why pnpm Workspaces?</h3>
+          <ul>
+            <li><span class="keyword">No phantom dependencies</span> — pnpm does NOT hoist all `node_modules` into one flat tree. If `@s2/api` imports
+              something only `@s2/web` declared, it fails immediately — not silently in CI.</li>
+            <li><span class="keyword">`workspace:*` protocol</span> — links packages locally without publishing to npm</li>
+            <li><span class="keyword">Single install</span> — one `pnpm install` at root wires everything up</li>
+            <li><span class="keyword">`--filter` flag</span> — run commands scoped to a single package</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Package Structure -->
+      <section id="packages">
+        <h2><span>Package Structure</span><span class="toggle">▾</span></h2>
+        <div class="content">
+          <p>Three core packages with strict dependency direction:</p>
+          <pre><code>packages/
+  core/    @s2/core   — brand-agnostic framework
+  api/     @s2/api    — API test package
+  web/     @s2/web    — Web test package</code></pre>
+
+          <div class="note">
+            <strong>Dependency rule:</strong> @s2/core has no dependencies. @s2/api and @s2/web depend on @s2/core but never on each other.
+          </div>
+
+          <h3>packages/core Layout</h3>
+          <pre><code>packages/core/
+  api/         → BaseAPI, api-paths.ts, brand-api.ts (BrandAPI singleton)
+  config/      → playwright configs, global-setup, project builder
+  data/        → credentials.json (AES-256-GCM encrypted)
+  decorators/  → @Step, @Log
+  dto/         → UserDto (credential roles)
+  fixtures/    → base-fixtures, browser-state paths
+  plugins/     → viptalk-reporter
+  types/       → Brand, Environment, TestTags enums
+  utils/       → loaders, locator-helpers, logger, test-helper
+  web/         → BasePage, BaseComponent, BrandLocators type
+  environments.yaml  → All brand configs</code></pre>
+
+          <h3>packages/api Layout</h3>
+          <pre><code>packages/api/src/
+  api/         → Domain API classes (Auth, Account, Game, Payment, etc.)
+  assertions/  → Per-domain assertion classes (CommonAssert + 6 domain classes)
+  fixtures/    → api-fixture.ts (sole fixture registration point)
+  tests/       → *.api.spec.ts test files
+  types/       → API-specific types
+  utils/       → builders, test helpers</code></pre>
+
+          <h3>packages/web Layout</h3>
+          <pre><code>packages/web/src/
+  actions/     → Action helpers, strategies (HomePageSetupStrategy)
+  capabilities/ → BrandCapabilities interface
+  fixtures/    → web-fixtures.ts, worker-fixtures.ts
+  ui/          → pages/, components/, brands/{brand}/
+  utils/       → helpers, locator-helpers
+  tests/       → *.web.spec.ts test files, setup/browser-state.setup.ts</code></pre>
+        </div>
+      </section>
+
+      <!-- TypeScript Configuration -->
+      <section id="ts-config">
+        <h2><span>TypeScript Configuration</span><span class="toggle">▾</span></h2>
+        <div class="content">
+          <table>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>`tsconfig.base.json`</td>
+                <td>Shared compiler options (target, strict, Stage 3 decorators)</td>
+              </tr>
+              <tr>
+                <td>`packages/*/tsconfig.json`</td>
+                <td>Per-package: local `paths`, includes, references</td>
+              </tr>
+              <tr>
+                <td>`tsconfig.json` (root)</td>
+                <td>IDE + `tsc --noEmit`: all aliases across all packages</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="warning">
+            <strong>Keep in sync:</strong> Path aliases must be defined in both per-package tsconfig (for builds) and root tsconfig (for IDE).
+          </div>
+
+          <h3>Path Aliases</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Alias</th>
+                <th>Resolves to</th>
+                <th>Usage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>`@s2/core`</td>
+                <td>`packages/core`</td>
+                <td>Both api and web</td>
+              </tr>
+              <tr>
+                <td>`@api/*`</td>
+                <td>`packages/api/src/*`</td>
+                <td>API package only</td>
+              </tr>
+              <tr>
+                <td>`@web/*`</td>
+                <td>`packages/web/src/*`</td>
+                <td>Web package only</td>
+              </tr>
+              <tr>
+                <td>`@web/actions/*`</td>
+                <td>`packages/web/src/actions/*`</td>
+                <td>Web package only</td>
+              </tr>
+              <tr>
+                <td>`@web/capabilities/*`</td>
+                <td>`packages/web/src/capabilities/*`</td>
+                <td>Web package only</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="note">
+            <strong>Alias naming:</strong> `@web/*` in an API file = wrong; `@api/*` in a web file = wrong. The naming makes violations obvious.
+          </div>
+        </div>
+      </section>
+
+      <!-- Environment Setup -->
+      <section id="env-setup">
+        <h2><span>Environment Setup</span><span class="toggle">▾</span></h2>
+        <div class="content">
+          <h3>Prerequisites</h3>
+          <pre><code>node --version     # needs >= 24
+pnpm --version     # needs >= 11.0
+
+pnpm install                        # one-time: installs all packages
+npx playwright install chromium     # one-time: install browser binary
+npx playwright install-deps         # Linux/CI only: OS-level deps</code></pre>
+
+          <h3>Environment Variables</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Variable</th>
+                <th>Required</th>
+                <th>Values</th>
+                <th>Example</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>`BRAND`</td>
+                <td>Yes</td>
+                <td>OXBET, SV88, FCB, DABET, MAY88, LODE88, VIVU88, BIG88, FO88, VB88</td>
+                <td>`BRAND=OXBET`</td>
+              </tr>
+              <tr>
+                <td>`ENV`</td>
+                <td>Yes</td>
+                <td>preprod, prod</td>
+                <td>`ENV=preprod`</td>
+              </tr>
+              <tr>
+                <td>`ENCRYPTION_KEY`</td>
+                <td>Yes (CI/setup)</td>
+                <td>64-char hex string</td>
+                <td>Set in CI secrets or locally</td>
+              </tr>
+              <tr>
+                <td>`VIPTALK_WEBHOOK`</td>
+                <td>No</td>
+                <td>Webhook URL</td>
+                <td>Enables VipTalk notification</td>
+              </tr>
+              <tr>
+                <td>`LOG_LEVEL`</td>
+                <td>No</td>
+                <td>Winston levels (default: `info`)</td>
+                <td>`LOG_LEVEL=debug`</td>
+              </tr>
+              <tr>
+                <td>`BASE_URL_OVERRIDE`</td>
+                <td>No</td>
+                <td>Full URL</td>
+                <td>Overrides environment baseURL</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>Set them inline or export:</p>
+          <pre><code>export BRAND=OXBET ENV=preprod
+# or inline
+BRAND=OXBET ENV=preprod pnpm run test:api:smoke</code></pre>
+        </div>
+      </section>
+
+      <!-- Running Tests -->
+      <section id="running-tests">
+        <h2><span>Running Tests</span><span class="toggle">▾</span></h2>
+        <div class="content">
+          <h3>API Tests</h3>
+          <pre><code># From repo root — run smoke tests
+BRAND=OXBET ENV=prod pnpm run test:api:smoke
+
+# Run all API tests for a brand
+BRAND=OXBET ENV=preprod pnpm run test:api
+
+# Scoped to package
+BRAND=OXBET ENV=preprod pnpm --filter @s2/api exec playwright test --project="api:BC159111-preprod"
+
+# By tag (@Smoke, @Regression, @DailyTest, @UpdateDomain)
+BRAND=OXBET ENV=preprod pnpm --filter @s2/api exec playwright test --project="api:BC159111-preprod" --grep "@Smoke"
+
+# List tests without running
+BRAND=OXBET ENV=preprod pnpm --filter @s2/api exec playwright test --project="api:BC159111-preprod" --list</code></pre>
+
+          <h3>Web Tests</h3>
+          <p>Web tests are <span class="keyword">native Playwright `.web.spec.ts` files</span> — no Gherkin, no BDD step definitions, no bddgen.</p>
+          <pre><code># From repo root
+BRAND=OXBET ENV=preprod pnpm run test:web
+
+# Run smoke tests only
+BRAND=OXBET ENV=preprod pnpm run test:web:smoke
+
+# UI mode (interactive browser)
+BRAND=OXBET ENV=preprod pnpm run launch:ui
+
+# Filter by tag
+BRAND=OXBET ENV=preprod pnpm --filter @s2/web exec playwright test --project="web:BC159111-preprod" --grep "@Smoke"
+
+# Run multiple brands sequentially
+bash scripts/run-brands.sh --type web --env preprod --tag @Smoke OXBET SV88</code></pre>
+
+          <h3>Brand-to-Code Reference</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Brand</th>
+                <th>Code</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>OXBET</td>
+                <td>BC159111</td>
+                <td><span class="brand-badge full">Full</span></td>
+              </tr>
+              <tr>
+                <td>SV88</td>
+                <td>BC119115</td>
+                <td><span class="brand-badge full">Full</span></td>
+              </tr>
+              <tr>
+                <td>FCB</td>
+                <td>BC158102</td>
+                <td><span class="brand-badge full">Full (modal login)</span></td>
+              </tr>
+              <tr>
+                <td>MAY88</td>
+                <td>BC121077</td>
+                <td><span class="brand-badge full">Full</span></td>
+              </tr>
+              <tr>
+                <td>VIVU88</td>
+                <td>BC226700</td>
+                <td><span class="brand-badge full">Full</span></td>
+              </tr>
+              <tr>
+                <td>LODE88</td>
+                <td>BC119076</td>
+                <td><span class="brand-badge skeleton">Skeleton</span></td>
+              </tr>
+              <tr>
+                <td>DABET</td>
+                <td>BC113100</td>
+                <td><span class="brand-badge api-only">API only</span></td>
+              </tr>
+              <tr>
+                <td>BIG88</td>
+                <td>BC180260</td>
+                <td><span class="brand-badge api-only">API only</span></td>
+              </tr>
+              <tr>
+                <td>FO88</td>
+                <td>BC226719</td>
+                <td><span class="brand-badge api-only">API only</span></td>
+              </tr>
+              <tr>
+                <td>VB88</td>
+                <td>BC180988</td>
+                <td><span class="brand-badge api-only">API only</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Code Quality -->
+      <section id="code-quality">
+        <h2><span>Code Quality</span><span class="toggle">▾</span></h2>
+        <div class="content">
+          <h3>Commands</h3>
+          <pre><code>pnpm run typecheck      # TypeScript type check (no emit)
+pnpm run lint           # ESLint check
+pnpm run lint:fix       # Auto-fix lint issues
+pnpm run format         # Prettier format
+pnpm run format:check   # Check formatting without writing
+pnpm run check          # Full check: typecheck + lint + format:check</code></pre>
+
+          <h3>Reports</h3>
+          <pre><code>pnpm --filter @s2/api run report    # Open API HTML report
+pnpm --filter @s2/web run report    # Open Web HTML report
+pnpm run report:send:api            # Send API results via VipTalk
+pnpm run report:send:web            # Send Web results via VipTalk</code></pre>
+
+          <h3>Credentials</h3>
+          <pre><code>pnpm run data:encrypt    # Encrypt credentials.json (after editing)
+pnpm run data:decrypt    # Decrypt credentials.json for editing</code></pre>
+        </div>
+      </section>
+
+      <!-- Browser Setup -->
+      <section id="browser-setup">
+        <h2><span>Browser Setup & Auth States</span><span class="toggle">▾</span></h2>
+        <div class="content">
+          <p>When you run a `web:*` project, Playwright automatically runs its dependency project `setup:browser-state-{code}-{env}` first.</p>
+
+          <h3>What it does</h3>
+          <ol>
+            <li><span class="keyword">Dialog suppression</span> — calls `BrowserSetupActions.suppressDialogs()`, which cycles the page to suppress
+              startup popups and saves localStorage state</li>
+            <li><span class="keyword">Auth states</span> (parallel) — saves storage state files for test users (fresh, commission roles)</li>
+          </ol>
+
+          <h3>Run setup in isolation</h3>
+          <pre><code>BRAND=OXBET ENV=preprod pnpm --filter @s2/web exec playwright test \
+  --project="setup:browser-state-BC159111-preprod"</code></pre>
+        </div>
+      </section>
+
+      <!-- Writing Tests -->
+      <section id="writing-tests">
+        <h2><span>Writing Tests</span><span class="toggle">▾</span></h2>
+        <div class="content">
+          <h3>API Tests</h3>
+          <p><span class="keyword">Create the spec file</span> in `packages/api/tests/` named `{domain}.api.spec.ts`:</p>
+          <pre><code>import { APITest as test, expect, state } from '@api/fixtures/api-fixture';
+import { Tags } from '@s2/core/types/test-tags.types';
+import { AuthAssert } from '@api/assertions/auth-assertion';
+
+test.describe('Authentication API', { tag: [Tags.Smoke, Tags.API] }, () => {
+  test.use({ storageState: state.unAuth });
+
+  test('should login successfully', async ({ authAPI, sharedTestUsers }) => {
+    const creds = sharedTestUsers.getCommission();
+    const response = await authAPI.login({ username: creds.username, password: creds.password });
+    AuthAssert.loginSuccess(response, creds.username);
+  });
+});</code></pre>
+
+          <h3>Mandatory API test rules</h3>
+          <ul>
+            <li>Import `test` as `APITest` from `@api/fixtures/api-fixture`</li>
+            <li>Tag all describe blocks with the `Tags` enum (never raw strings)</li>
+            <li>Set storage state on every describe block: `state.auth` or `state.unAuth`</li>
+            <li>Generate test data **inside** test callbacks (never at module/describe level)</li>
+            <li>Use `sharedTestUsers` for credentials — don't call `CredentialsLoader`</li>
+          </ul>
+
+          <h3>Web Tests</h3>
+          <p>Web tests are <span class="keyword">native Playwright `.web.spec.ts` files</span> — no BDD, no step definitions.</p>
+          <pre><code>import { test, expect } from '@web/fixtures/web-fixtures';
+import { Tags } from '@s2/core/types/test-tags.types';
+
+test.describe('Login', { tag: [Tags.Smoke, Tags.Web] }, () => {
+  test.use({ storageState: state.unAuth });
+
+  test('should login successfully', async ({ loginPage, homePage, sharedTestUsers, brandCapabilities }) => {
+    test.skip(
+      brandCapabilities.loginVariant === 'not-supported',
+      'Login not supported for this brand'
+    );
+
+    const creds = sharedTestUsers.getCommission();
+    await loginPage.goto();
+    await loginPage.header.inputUsername.fill(creds.username);
+    await loginPage.header.inputPassword.fill(creds.password);
+    await loginPage.header.btnLogin.click();
+
+    await expect(homePage.header.iconUser).toBeVisible();
+  });
+});</code></pre>
+
+          <h3>Web Architecture</h3>
+          <pre><code>*.web.spec.ts
+  → pages (*.page.ts)      — expose components as @Log() getters
+    → components (*.component.ts) — expose locators only
+      → brands/{brand}/*.locators.ts — CSS strings or byRole() helpers</code></pre>
+
+          <h3>Page object rules</h3>
+          <ul>
+            <li>Extend `BasePage`; pass full `BrandLocators` to constructor</li>
+            <li>Expose components as `@Log()` getters</li>
+            <li>Compound interactions as `@Step()` methods</li>
+            <li>No locators directly on pages — they belong in components</li>
+            <li>No assertions on pages</li>
+            <li>No `async` methods (enforced by pre-commit hook)</li>
+          </ul>
+
+          <h3>Component object rules</h3>
+          <ul>
+            <li>Extend `BaseComponent`; always implement `get root(): Locator`</li>
+            <li>`get root()` MUST use `this.rootLocator('key')` (not `this.locator()` — infinite recursion)</li>
+            <li>Child elements use `this.locator('key')` — auto-scoped to root</li>
+            <li>Parameterized locators use `this.locatorWith('key', param)`</li>
+            <li>Expose elements only — no action methods (`.fill()`, `.click()`)</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Adding a Brand -->
+      <section id="adding-brand">
+        <h2><span>Adding a New Brand</span><span class="toggle">▾</span></h2>
+        <div class="content">
+          <p>Adding a brand requires updates in 7 places.</p>
+
+          <h3>1. Runtime config</h3>
+          <p>File: `packages/core/environments.yaml`</p>
+          <pre><code>NEWBRAND:
+  code: 'BC000000'
+  preprod:
+    baseURL: 'https://dev05.newbrand.com'
+  prod:
+    baseURL: 'https://newbrand.com'</code></pre>
+
+          <h3>2. Brand enum</h3>
+          <p>File: `packages/core/types/brands.types.ts`</p>
+          <pre><code>export enum Brand {
+  NEWBRAND = 'NEWBRAND',
+}</code></pre>
+
+          <h3>3. Web locators</h3>
+          <p>File: `packages/web/src/ui/brands/newbrand/newbrand.locators.ts`</p>
+          <pre><code>export const NewbrandLocators: BrandLocators = {
+  loginPage:  { root: 'body' },
+  homePage:   { root: 'body' },
+  headerComponent: {
+    root:          'body header',
+    inputUsername: byRole('textbox', { name: 'Tên đăng nhập' }),
+    inputPassword: byRole('textbox', { name: 'Mật khẩu' }),
+    btnLogin:      byRole('button',  { name: 'ĐĂNG NHẬP' }),
+  },
+  heroBannerComponent: {
+    root: '.hero-banner',
+  },
+};</code></pre>
+
+          <div class="note">
+            Required sections: `loginPage`, `homePage`, `headerComponent`, `heroBannerComponent`. Optional: `loginForm`, `loginModal`, etc.
+          </div>
+
+          <h3>4. Web messages</h3>
+          <p>File: `packages/web/src/ui/brands/newbrand/newbrand.messages.ts`</p>
+          <pre><code>export const NewbrandMessages: BrandMessages = {
+  login: {
+    errorInvalidCredentials: 'Tên đăng nhập hoặc mật khẩu không đúng',
+  },
+};</code></pre>
+
+          <h3>5. Register in fixtures</h3>
+          <p>File: `packages/web/src/utils/helpers/fixtures-helpers.ts`</p>
+          <pre><code>const BRAND_LOCATORS: Partial<Record<Brand, BrandLocators>> = {
+  [Brand.NEWBRAND]: NewbrandLocators,
+};
+
+const BRAND_CAPABILITIES: Record<Brand, BrandCapabilities> = {
+  [Brand.NEWBRAND]: { loginVariant: 'header-inline' },
+};</code></pre>
+
+          <h3>6. Credentials</h3>
+          <p>File: `packages/core/data/credentials.json`</p>
+          <pre><code>pnpm run data:decrypt
+# Add entries (passwords with enc: prefix)
+pnpm run data:encrypt</code></pre>
+
+          <h3>7. CI configuration</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>`.github/config/test-config.json`</td>
+                <td>Add to `brands` array</td>
+              </tr>
+              <tr>
+                <td>`.github/workflows/test-api-prod.yml`</td>
+                <td>Add to `workflow_dispatch` choices</td>
+              </tr>
+              <tr>
+                <td>`.github/workflows/test-api-preprod.yml`</td>
+                <td>Add to `workflow_dispatch` choices</td>
+              </tr>
+              <tr>
+                <td>`scripts/run-brands.sh`</td>
+                <td>Add to `ALL_BRANDS` array</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Common Imports -->
+      <section id="common-imports">
+        <h2><span>Common Imports</span><span class="toggle">▾</span></h2>
+        <div class="content">
+          <h3>Core shared types (both api and web)</h3>
+          <pre><code>import { Tags } from '@s2/core/types/test-tags.types';
+import { Brand } from '@s2/core/types/brands.types';
+import { BasePage } from '@s2/core/web/base-page';
+import { BaseComponent } from '@s2/core/web/base-component';
+import { BaseAPI } from '@s2/core/api/base-api';
+import { BrandAPI } from '@s2/core/api/brand-api';
+import { byRole, withParam } from '@s2/core/utils/locator-helpers';
+import { type BrandLocators } from '@s2/core/web/brand-locators.type';</code></pre>
+
+          <h3>API package only</h3>
+          <pre><code>import { APITest as test, expect, state } from '@api/fixtures/api-fixture';
+import { CommonAssert } from '@api/assertions/common-assertion';
+import { AuthAssert, GameAssert, PaymentAssert } from '@api/assertions/*';
+import { AuthenticationAPI } from '@api/api/auth-api';</code></pre>
+
+          <h3>Web package only</h3>
+          <pre><code>import { test, expect } from '@web/fixtures/web-fixtures';
+import { LoginPage } from '@web/ui/pages/login-page';
+import { HeaderComponent } from '@web/ui/components/header.component';
+import { resolveBrandLocators } from '@web/utils/helpers/fixtures-helpers';</code></pre>
+        </div>
+      </section>
+
+      <!-- Pre-commit Hooks -->
+      <section id="pre-commit">
+        <h2><span>Pre-commit Hooks</span><span class="toggle">▾</span></h2>
+        <div class="content">
+          <p>All staged `.ts` files run through these checks:</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Hook</th>
+                <th>Blocks</th>
+                <th>Fix</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>`test.only` / `describe.only`</td>
+                <td>Focused tests in commit</td>
+                <td>Remove `.only`</td>
+              </tr>
+              <tr>
+                <td>Missing describe tags</td>
+                <td>`test.describe()` without `{ tag: [...] }`</td>
+                <td>Add `{ tag: [Tags.Smoke] }`</td>
+              </tr>
+              <tr>
+                <td>Plain-text passwords</td>
+                <td>`credentials.json` without `enc:` prefix</td>
+                <td>Run `pnpm run data:encrypt`</td>
+              </tr>
+              <tr>
+                <td>`waitForTimeout(` no comment</td>
+                <td>Arbitrary waits</td>
+                <td>Add `/** Usage: <reason> */`</td>
+              </tr>
+              <tr>
+                <td>`force: true` no comment</td>
+                <td>Force-clicks</td>
+                <td>Add `/** Usage: <reason> */`</td>
+              </tr>
+              <tr>
+                <td>Core → api/web imports</td>
+                <td>`packages/core/**` importing `@api/*` or `@web/*`</td>
+                <td>Move code to core</td>
+              </tr>
+              <tr>
+                <td>ESLint/Prettier</td>
+                <td>lint-staged violations</td>
+                <td>Run `pnpm run lint:fix && pnpm run format`</td>
+              </tr>
+              <tr>
+                <td>POM purity</td>
+                <td>`async` in components/pages</td>
+                <td>Move logic to action classes</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Common Pitfalls -->
+      <section id="pitfalls">
+        <h2><span>Common Pitfalls</span><span class="toggle">▾</span></h2>
+        <div class="content">
+          <table>
+            <thead>
+              <tr>
+                <th>Pitfall</th>
+                <th>Problem</th>
+                <th>Fix</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Core imports `@api/*` or `@web/*`</td>
+                <td>Pre-commit blocks; circular reference</td>
+                <td>Move code to core</td>
+              </tr>
+              <tr>
+                <td>`@web/*` import in API file</td>
+                <td>Compile error</td>
+                <td>Move code to core</td>
+              </tr>
+              <tr>
+                <td>Alias in only one tsconfig</td>
+                <td>IDE works, build fails</td>
+                <td>Update both per-package and root tsconfig</td>
+              </tr>
+              <tr>
+                <td>`test.only` in committed code</td>
+                <td>Pre-commit blocks; CI fails</td>
+                <td>Remove `.only`</td>
+              </tr>
+              <tr>
+                <td>Test data at module/describe level</td>
+                <td>Race conditions in parallel</td>
+                <td>Generate inside test callbacks</td>
+              </tr>
+              <tr>
+                <td>Missing `get root()` on component</td>
+                <td>TypeScript error</td>
+                <td>Every `BaseComponent` needs `get root()`</td>
+              </tr>
+              <tr>
+                <td>`this.locator()` in `get root()`</td>
+                <td>Infinite recursion</td>
+                <td>Use `this.rootLocator('key')`</td>
+              </tr>
+              <tr>
+                <td>`page.getByRole(...)` in brand map</td>
+                <td>Evaluated at construction, not query time</td>
+                <td>Use `byRole(...)` helper</td>
+              </tr>
+              <tr>
+                <td>Phantom dependencies</td>
+                <td>Works locally, breaks in CI</td>
+                <td>Declare deps in package's own `package.json`</td>
+              </tr>
+              <tr>
+                <td>Assertions in pages/components</td>
+                <td>Violates separation of concerns</td>
+                <td>Assertions go in spec files only</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Technology Stack -->
+      <section id="tech-stack">
+        <h2><span>Technology Stack</span><span class="toggle">▾</span></h2>
+        <div class="content">
+          <table>
+            <thead>
+              <tr>
+                <th>Layer</th>
+                <th>Tech</th>
+                <th>Version</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Runtime</td>
+                <td>Node.js</td>
+                <td>≥24</td>
+              </tr>
+              <tr>
+                <td>Package manager</td>
+                <td>pnpm</td>
+                <td>≥11.0</td>
+              </tr>
+              <tr>
+                <td>Test framework</td>
+                <td>Playwright</td>
+                <td>1.58+</td>
+              </tr>
+              <tr>
+                <td>Language</td>
+                <td>TypeScript</td>
+                <td>5.9+</td>
+              </tr>
+              <tr>
+                <td>Decorators</td>
+                <td>Stage 3 decorators</td>
+                <td>`experimentalDecorators: false`</td>
+              </tr>
+              <tr>
+                <td>Encryption</td>
+                <td>crypto/aes-256-gcm</td>
+                <td>Node built-in</td>
+              </tr>
+              <tr>
+                <td>Logger</td>
+                <td>Winston</td>
+                <td>3.11+</td>
+              </tr>
+              <tr>
+                <td>Validation</td>
+                <td>Zod</td>
+                <td>3.25+</td>
+              </tr>
+              <tr>
+                <td>Linter</td>
+                <td>ESLint</td>
+                <td>9.39+</td>
+              </tr>
+              <tr>
+                <td>Formatter</td>
+                <td>Prettier</td>
+                <td>3.8+</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="footer">
+        <p>Mono-Repo Architecture Guide | Updated 2026-06-21</p>
+        <p>For more information, ask owner to share <code>.claude/CLAUDE.md</code> and rules files in <code>.claude/rules/</code></p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Generate table of contents
+    function generateTOC() {
+      const sections = document.querySelectorAll('section');
+      const navList = document.getElementById('navList');
+      navList.innerHTML = '';
+
+      sections.forEach((section) => {
+        const heading = section.querySelector('h2');
+        if (!heading) return;
+
+        const text = heading.querySelector('span:first-child')?.textContent || heading.textContent;
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = `#${section.id}`;
+        a.textContent = text;
+        li.appendChild(a);
+        navList.appendChild(li);
+      });
+
+      // Add active class to current section
+      window.addEventListener('scroll', () => {
+        let current = '';
+        sections.forEach((section) => {
+          const sectionTop = section.offsetTop;
+          if (pageYOffset >= sectionTop - 200) {
+            current = section.getAttribute('id');
+          }
+        });
+
+        document.querySelectorAll('.sidebar-nav a').forEach((a) => {
+          a.classList.remove('active');
+          if (a.getAttribute('href') === `#${current}`) {
+            a.classList.add('active');
+          }
+        });
+      });
+    }
+
+    // Collapsible sections
+    function setupCollapsible() {
+      const sections = document.querySelectorAll('section');
+      sections.forEach((section) => {
+        const heading = section.querySelector('h2');
+        if (!heading) return;
+
+        heading.addEventListener('click', () => {
+          section.classList.toggle('collapsed');
+          heading.classList.toggle('collapsed');
+        });
+      });
+    }
+
+    // Theme toggle
+    function setupTheme() {
+      const toggle = document.getElementById('themeToggle');
+      const root = document.documentElement;
+      const saved = localStorage.getItem('theme') || 'light';
+
+      root.setAttribute('data-theme', saved);
+      toggle.textContent = saved === 'dark' ? '☀ Light' : '🌙 Dark';
+
+      toggle.addEventListener('click', () => {
+        const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        root.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        toggle.textContent = next === 'dark' ? '☀ Light' : '🌙 Dark';
+      });
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      generateTOC();
+      setupCollapsible();
+      setupTheme();
+    });
+  </script>
+</body>
+
+</html>
