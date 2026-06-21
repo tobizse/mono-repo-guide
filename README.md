@@ -1,2 +1,2 @@
 # mono-repo-guide
-A guid
+A guide line for mono-repo
